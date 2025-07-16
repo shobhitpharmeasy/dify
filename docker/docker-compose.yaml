@@ -514,6 +514,14 @@ x-shared-env: &shared-api-worker-env
   QUEUE_MONITOR_ALERT_EMAILS: ${QUEUE_MONITOR_ALERT_EMAILS:-}
   QUEUE_MONITOR_INTERVAL: ${QUEUE_MONITOR_INTERVAL:-30}
 
+volumes:
+  api:
+  worker:
+  db:
+  db_pg_run:
+  redis:
+  plugin_daemon:
+
 services:
   # API service
   api:
@@ -538,7 +546,9 @@ services:
         condition: service_started
     volumes:
       # Mount the storage directory to the container, for storing user files.
-      - ./volumes/app/storage:/app/api/storage
+      - api:/app/api/storage
+    tmpfs:
+      - /app/logs
     networks:
       - ssrf_proxy_network
       - default
@@ -565,7 +575,7 @@ services:
         condition: service_started
     volumes:
       # Mount the storage directory to the container, for storing user files.
-      - ./volumes/app/storage:/app/api/storage
+      - worker:/app/api/storage
     networks:
       - ssrf_proxy_network
       - default
@@ -610,7 +620,8 @@ services:
                -c 'maintenance_work_mem=${POSTGRES_MAINTENANCE_WORK_MEM:-64MB}'
                -c 'effective_cache_size=${POSTGRES_EFFECTIVE_CACHE_SIZE:-4096MB}'
     volumes:
-      - ./volumes/db/data:/var/lib/postgresql/data
+      - db:/var/lib/postgresql/data
+      - db_pg_run:/var/run/postgresql
     healthcheck:
       test: [ 'CMD', 'pg_isready', '-h', 'db', '-U', '${PGUSER:-postgres}', '-d', '${POSTGRES_DB:-dify}' ]
       interval: 1s
@@ -625,7 +636,7 @@ services:
       REDISCLI_AUTH: ${REDIS_PASSWORD:-difyai123456}
     volumes:
       # Mount the redis data directory to the container.
-      - ./volumes/redis/data:/data
+      - redis:/data
     # Set the redis password when startup redis server.
     command: redis-server --requirepass ${REDIS_PASSWORD:-difyai123456}
     healthcheck:
@@ -707,7 +718,7 @@ services:
     ports:
       - "${EXPOSE_PLUGIN_DEBUGGING_PORT:-5003}:${PLUGIN_DEBUGGING_PORT:-5003}"
     volumes:
-      - ./volumes/plugin_daemon:/app/storage
+      - plugin_daemon:/app/storage
     depends_on:
       db:
         condition: service_healthy
@@ -1227,7 +1238,3 @@ networks:
   opensearch-net:
     driver: bridge
     internal: true
-
-volumes:
-  oradata:
-  dify_es01_data:
